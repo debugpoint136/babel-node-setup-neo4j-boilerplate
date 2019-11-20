@@ -1,5 +1,5 @@
 import neo4j from "neo4j-driver/lib/browser/neo4j-web";
-import { getCSVdataUsingD3 } from './helper';
+import { getCSVData } from './helper';
 import 'dotenv/config';
 
 export default class Neo4jDataImporter {
@@ -14,14 +14,42 @@ export default class Neo4jDataImporter {
     );
   }
 
-  start = () => {
-    // read the CSV file, take 100 rows
+  start = async () => {
+    // read the CSV file, take 100 rows   ✔
     // extract and format rows
     // call neo4j function to submit to db
-    // const csvFileResponse = await getCSVdataUsingD3();// localfile 
-    // console.log(csvFileResponse);
-    console.log('ok..ready to start')
+    const csvFileResponse = await getCSVData();// url 
+    const { data } = csvFileResponse;
+    const formattedData = data.map(({X, Y, Z}) => ({ x: Math.round(X), y: Math.round(Y), z: Math.round(Z) })); 
+    const done = await this.submitToNeo4j(formattedData);
   }
+
+  submitToNeo4j = async (input) => {
+    const session = this.driver.session();
+
+    let query;
+
+    query = `WITH {data} as data
+    UNWIND data.rows as q    
+    CREATE (sp: SpacePoint { coordinate: point({ x: q.x, y: q.y, z: q.z }) })
+    RETURN sp
+      `;
+
+    session
+      .run(query, {
+        data: { rows: input }
+      })
+      .then(result => {
+        console.log(result);
+        session.close();
+      })
+      .catch(e => {
+        // TODO: handle errors.
+        console.log(e);
+        session.close();
+      });
+  };
+  
 
   fetchBusinesses = () => {
     const session = this.driver.session();

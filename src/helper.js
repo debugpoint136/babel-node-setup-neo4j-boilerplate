@@ -1,4 +1,4 @@
-import * as d3 from 'd3';
+// import * as d3 from 'd3';
 import Papa from 'papaparse';
 // import * as BABYLON from 'babylonjs';
 const URL = 'https://raw.githubusercontent.com/debugpoint136/chromosome-3d/master/IMR90_chr07-0-159Mb.csv';
@@ -79,7 +79,7 @@ export async function getCSVData() {
 
   if (res.ok) {
       const splitData = text.split('\n');
-      const content = splitData.slice(1, splitData.length - 1); // first line is Description
+      const content = splitData.slice(1, 100 - 1); // first line is Description
 
       let parsedCSVData = Papa.parse(content.join('\r\n'), {
                   dynamicTyping: true,
