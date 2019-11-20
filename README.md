@@ -1,0 +1,7 @@
+Add .env before using
+
+REACT_APP_NEO4J_URI=bolt://x.xx.xxx.xxxx:9999
+REACT_APP_NEO4J_USER=xxxx
+REACT_APP_NEO4J_PASSWORD=XXXXXXxxxxxxxXxxXXx
+GRAPHQL_LISTEN_PORT=4000
+GRAPHQL_URI=http://localhost:4000
