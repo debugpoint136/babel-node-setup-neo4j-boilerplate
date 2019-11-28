@@ -8,7 +8,8 @@ Object.assign(global, { WebSocket: require('websocket').w3cwebsocket }); // http
 
 const worker = new Neo4jDataImporter();
 try {
-  worker.start();
+  // worker.start();
+  worker.submitAnnotations([]);
 } catch (error) {
   console.log(error)
 }

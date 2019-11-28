@@ -62,7 +62,7 @@ const calcScaledPosition = function(position, scalingRatio, arrLength) {
 
 export async function getCSVdataUsingD3() {
   const dataFromLocalFile = await d3.csv('../data/IMR90_chr07-0-159Mb.csv');
-  const strToNum = dataFromLocalFile.slice(0, 100).map(item => {
+  const strToNum = dataFromLocalFile.map(item => {
       let tmp = {};
       Object.keys(item).forEach(key => {
           let value = item[key];
@@ -79,13 +79,12 @@ export async function getCSVData() {
 
   if (res.ok) {
       const splitData = text.split('\n');
-      const content = splitData.slice(1, 100 - 1); // first line is Description
+      const content = splitData.slice(1, splitData.length - 1); // first line is Description
 
       let parsedCSVData = Papa.parse(content.join('\r\n'), {
                   dynamicTyping: true,
                   header: true
               });
-
       return parsedCSVData;
   } else {
       throw new Error(text);
