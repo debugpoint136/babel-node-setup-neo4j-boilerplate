@@ -1,6 +1,7 @@
 import neo4j from "neo4j-driver/lib/browser/neo4j-web";
 import { getCSVData } from './helper';
 import 'dotenv/config';
+const uuid = require('uuid');
 const GENOME_TO_SPACE_SCALE = 620;
 const MAX_RECORDS_PER_SESSION = 10000;
 // const attempt = require("@assertchris/attempt-promise");
@@ -27,7 +28,7 @@ export default class Neo4jDataImporter {
       list = data;
     }
 
-    const coordinatesOnly = extractCoordinates(list);
+    const coordinatesOnly = unpackList(list);
     // console.log(coordinatesOnly);
     //TODO: add filter by chr
     const query_fetch_coordinates = `WITH {data} as data
@@ -55,7 +56,6 @@ export default class Neo4jDataImporter {
         // add 620, minus 620 ✔
         // neo4j call ✔
       // using coordinates, consolidate , update and format in required format ✔
-
       // deposit back to neo4j with coordinates
 
   }
@@ -133,59 +133,108 @@ function calcLocus(input) {
   return { start, end };
 }
 
-function extractCoordinates(list) {
+function unpackList(list) {
   let tmp = [];
   list.forEach(d => {
-    const { start, end, chr } = d.locus; // TODO: extract links as well
-    // tmp.push({ locusEntry: start, ...getBoundaryCoordinates(start) });
-    // tmp.push({ locusEntry: end, ...getBoundaryCoordinates(end) });
-    tmp.push({ checkpoint: start });
-    tmp.push({ checkpoint: end });
+    let result = extractCoordinatesFromLocus(d.locus);
+    tmp = tmp.concat(result);
+    if (d.hasOwnProperty('links')) {
+      let extractedLinks = d.links.map(link => extractCoordinatesFromLocus(link));
+      let extractedLinksFlat = extractedLinks.flat();
+      if (extractedLinksFlat.length > 0) {
+        tmp = tmp.concat(extractedLinksFlat);
+      }
+    }
   })
 
   return tmp;
 }
 
-function updateListWithCoordinates(list, coordinatesLookup) {
+function extractCoordinatesFromLocus(locus) {
+    const { start, end, chr } = locus; 
+    return [{ checkpoint: start, chr }, { checkpoint: end, chr }];
+}
+
+function updateListWithCoordinates(list, coordinatesLookup) { // TODO: coordinatesLookup should be class method
   let results = [];
   list.forEach(d => {
-    let { start, end } = d.locus;
-    const coordinate_start = coordinatesLookup[start] || undefined;
-    const coordinate_end = coordinatesLookup[end] || undefined;
+    const coordinates_main = lookupCoordinate(d.locus, coordinatesLookup);
 
-    const res = Object.assign({ coordinate_start, coordinate_end }, {...d});
+    const res = Object.assign({...coordinates_main}, {...d});
     if (res.hasOwnProperty('metadata')) {
       res.metadata = JSON.stringify(res.metadata);
     }
-    results.push(res);
+    if (res.hasOwnProperty('links')) {
+      let tmp = {};
+      res.linkCoordinates = [];
+
+      res.links.forEach((locus, index) => {
+        let { coordinate_start, coordinate_end } = lookupCoordinate(locus, coordinatesLookup);
+        res.linkCoordinates.push({ coordinate_start, coordinate_end });
+        tmp[`link${index+1}_coordinate_start`] = coordinate_start;
+        tmp[`link${index+1}_coordinate_end`] = coordinate_end;
+      })
+      res.linkCoordinates = JSON.stringify(res.linkCoordinates);
+      const resWithLinks = Object.assign({...tmp}, {...res});
+      resWithLinks.links = JSON.stringify(resWithLinks.links);
+      results.push(resWithLinks);
+    } else {
+      results.push(res);
+    }
+  
   })
 
   return results;
 }
 
 
+function lookupCoordinate(locus, coordinatesLookup) {
+  let { start, end } = locus;
+  const coordinate_start = coordinatesLookup[start] || undefined;
+  const coordinate_end = coordinatesLookup[end] || undefined;
+
+  return { coordinate_start, coordinate_end };
+}
+
 function createNeo4jSubmitQuery(list) {
   // create one Point node at startCoordinate
   // create one Point node at endCoordinate
   // Create relationship between 2 nodes
   // attach all attributes
+  const UUID = uuid.v4();
   let query = ``;
   let { links } = list;
-  // if (links.length > 0) {
-
-  // } else {
     let queryPart = `WITH {data} as data
     UNWIND data.rows as q
     MERGE (ap: AnnotationPoint 
       { 
-        coordinate: point({ x: q.coordinate_start.x, y: q.coordinate_start.y, z: q.coordinate_start.z }), 
-        chr: q.locus.chr, genomic_locus_start: q.locus.start, genomic_locus_end: q.locus.end,
-        value: q.value, value_type: q.value_type, metadata: q.metadata,
-        scope: q.scope, type: q.type, name: q.name
-      }
-    )
+        coordinate: point({ 
+          x: q.coordinate_start.x, 
+          y: q.coordinate_start.y, 
+          z: q.coordinate_start.z 
+        }), name: q.name })
+      ON MATCH SET
+        ap.chr = q.locus.chr, 
+        ap.genomic_locus_start = q.locus.start, 
+        ap.genomic_locus_end = q.locus.end,
+        ap.value = q.value, 
+        ap.value_type = q.value_type, 
+        ap.metadata = q.metadata,
+        ap.scope = q.scope, 
+        ap.type = q.type, 
+        ap.name = q.name,
+        ap.uuid = '${UUID}',
+        ap.links = q.links,
+        ap.linkCoordinates = q.linkCoordinates
     RETURN ap`;
-  // }
+    let queryLinksPart = ``;
+    if (links) {
+      // TODO : 
+      // create new nodes one per link item
+      // create new relationship, one per 
+      
+      return query + queryPart + queryLinksPart;
+    }
 
   return query + queryPart;
   

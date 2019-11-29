@@ -25,6 +25,7 @@
     "neo4j-driver": "^1.7.6",
     "node-fetch-polyfill": "^2.0.6",
     "papaparse": "^5.1.0",
+    "uuid": "^3.3.3",
     "websocket": "^1.0.30"
   }
 }
